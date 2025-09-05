@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Mini Drag & Drop Builder (React CDN)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, Arial, sans-serif;
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+
+        .col {
+            padding: 12px;
+            overflow: auto;
+        }
+
+        .sidebar {
+            width: 20%;
+            border-right: 1px solid #ddd;
+        }
+
+        .canvas {
+            flex: 1;
+            background: #fafafa;
+        }
+
+        .props {
+            width: 24%;
+            border-left: 1px solid #ddd;
+        }
+
+        .chip {
+            padding: 8px 10px;
+            border: 1px dashed #888;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .dropzone {
+            border: 2px dashed #bbb;
+            border-radius: 12px;
+            min-height: 80vh;
+            padding: 12px;
+            background: #fff;
+        }
+
+        .el {
+            border: 1px solid #eee;
+            padding: 8px;
+            border-radius: 10px;
+            background: #fff;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .el.selected {
+            outline: 2px solid #6366f1;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .field label {
+            font-size: 12px;
+            color: #555;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .codebox {
+            width: 100%;
+            min-height: 110px;
+            white-space: pre;
+            background: #0f172a;
+            color: #e5e7eb;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <!-- React + ReactDOM + Babel (CDN) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Your App -->
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        // ---------- Utils
+        const newElement = (type) => {
+            const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+            if (type === "text") return { id, type, content: "New Text", style: { color: "#111827", fontSize: 18, fontWeight: "normal", align: "left" } };
+            if (type === "button") return { id, type, content: "Click Me", href: "#", style: { color: "#ffffff", bg: "#2563eb", fontSize: 16, align: "left" } };
+            if (type === "image") return { id, type, src: "https://via.placeholder.com/600x200?text=Banner", alt: "placeholder", style: { width: 600 } };
+            if (type === "heading") return { id, type, content: "Heading", level: 2, style: { color: "#111827", align: "left" } };
+            if (type === "divider") return { id, type, content: "Divider", style: { thickness: 1, color: "#e5e7eb" } };
+            if (type === "form") return { id, type, content: "Form", style: { color: "#111827" } };
+            if (type === "input") return { id, type, content: "Input", style: { color: "#111827" } };
+            if (type === "password") return { id, type, content: "Password", style: { color: "#111827" } };
+            if (type === "select") {
+                return {
+                    id,
+                    type,
+                    options: ["Option 1", "Option 2"], // 👈 default options
+                    style: { padding: "8px", borderRadius: "6px", border: "1px solid #ccc", width: "100%" }
+                };
+            }
+
+            return { id, type, content: "Element" };
+        };
+
+        // ---------- Sidebar (draggables)
+        function Sidebar() {
+            const startDrag = (e, type) => {
+                e.dataTransfer.setData("type", type);
+            };
+            return (
+                <div className="col sidebar">
+                    <h3>Elements</h3>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "heading")}>📣 Heading</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "text")}>📝 Text</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "image")}>🖼️ Image</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "button")}>🔘 Button</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "divider")}>➖ Divider</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "form")}>📋 Form</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "input")}>🔤 Input</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "password")}>🔒 Password</div>
+                    <div className="chip" draggable onDragStart={(e) => startDrag(e, "select")}>🧱 Select</div>
+                    <p style={{ marginTop: 12, fontSize: 12, color: "#555" }}>Drag any element and drop into canvas →</p>
+                </div>
+            );
+        }
+
+        // ---------- Canvas (drop area)
+        function Canvas({ elements, setElements, selectedId, setSelectedId }) {
+            const allow = (e) => e.preventDefault();
+            const onDrop = (e) => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData("type");
+                if (!type) return;
+                setElements(prev => [...prev, newElement(type)]);
+            };
+
+            const remove = (id) => setElements(prev => prev.filter(el => el.id !== id));
+            const move = (id, dir) => {
+                setElements(prev => {
+                    const i = prev.findIndex(el => el.id === id);
+                    if (i < 0) return prev;
+                    const j = dir === "up" ? i - 1 : i + 1;
+                    if (j < 0 || j >= prev.length) return prev;
+                    const copy = [...prev];
+                    [copy[i], copy[j]] = [copy[j], copy[i]];
+                    return copy;
+                });
+            };
+
+            return (
+                <div className="col canvas">
+                    <div className="toolbar">
+                        <button className="btn" onClick={() => setElements([])}>Clear</button>
+                        <button className="btn" onClick={() => {
+                            const data = JSON.stringify({ elements }, null, 2);
+                            navigator.clipboard?.writeText(data);
+                            alert("JSON copied to clipboard!");
+                        }}>Copy JSON</button>
+                    </div>
+
+                    <div className="dropzone" onDragOver={allow} onDrop={onDrop}>
+                        {elements.length === 0 && <p style={{ color: "#777" }}>Drop elements here…</p>}
+
+                        {elements.map((el) => (
+                            <div
+                                key={el.id}
+                                className={"el" + (selectedId === el.id ? " selected" : "")}
+                                onClick={() => setSelectedId(el.id)}
+                            >
+                                {/* Render element */}
+                                {el.type === "heading" && React.createElement(
+                                    "h" + el.level,
+                                    { style: { color: el.style.color, margin: "6px 0", textAlign: el.style.align } },
+                                    el.content
+                                )}
+
+                                {el.type === "text" && (
+                                    <p style={{
+                                        margin: "6px 0",
+                                        color: el.style.color,
+                                        fontSize: el.style.fontSize,
+                                        fontWeight: el.style.fontWeight,
+                                        textAlign: el.style.align
+                                    }}>
+                                        {el.content}
+                                    </p>
+                                )}
+                                {el.type === "image" && <img src={el.src} alt={el.alt} style={{ width: el.style.width + "px", maxWidth: "100%" }} />}
+                                {el.type === "button" && <a href={el.href} style={{ margin: "6px 0", display: "inline-block", textDecoration: "none", background: el.style.bg, color: el.style.color, padding: "8px 12px", borderRadius: 8, fontSize: el.style.fontSize, textAlign: el.style.align }}>{el.content}</a>}
+                                {el.type === "divider" && <hr style={{ border: 0, borderTop: `${el.style.thickness}px solid ${el.style.color}` }} />}
+                                {el.type === "input" && (
+                                    <input type="text" placeholder="Input field" style={{ margin: "6px 0", padding: "8px", borderRadius: "6px", border: "1px solid #ccc", width: "100%" }} />
+                                )}
+                                {el.type === "password" && (
+                                    <input type="password" placeholder="Password field" style={{ margin: "6px 0", padding: "8px", borderRadius: "6px", border: "1px solid #ccc", width: "100%" }} />
+                                )}
+                                {el.type === "select" && (
+                                    <select style={el.style}>
+                                        {el.options.map((opt, i) => (
+                                            <option key={i} value={opt}>
+                                                {opt}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {el.type === "form" && <Form />}
+
+                                {/* Item controls */}
+                                <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 6 }}>
+                                    <button className="btn" onClick={(e) => { e.stopPropagation(); move(el.id, "up"); }}>↑</button>
+                                    <button className="btn" onClick={(e) => { e.stopPropagation(); move(el.id, "down"); }}>↓</button>
+                                    <button className="btn" onClick={(e) => { e.stopPropagation(); remove(el.id); }}>✕</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ---------- Properties Panel (form)
+        function Properties({ elements, setElements, selectedId }) {
+            const el = useMemo(() => elements.find(x => x.id === selectedId), [elements, selectedId]);
+            const update = (patch) => {
+                setElements(prev => prev.map(x => x.id === selectedId ? ({ ...x, ...patch }) : x));
+            };
+            const updateStyle = (patch) => update({ style: { ...(el?.style || {}), ...patch } });
+
+            const exportHTML = () => {
+                const html = elements.map(e => {
+                    if (e.type === "heading") return `<h${e.level} style="color:${e.style.color};margin:6px 0;text-align:${e.style.align};">${e.content}</h${e.level}>`;
+
+                    if (e.type === "text") return `<p style="color:${e.style.color};font-size:${e.style.fontSize}px;font-weight:${e.style.fontWeight};margin:6px 0;text-align:${e.style.align};">${e.content}</p>`;
+                    if (e.type === "image") return `<img src="${e.src}" alt="${e.alt}" style="width:${e.style.width}px;max-width:100%" />`;
+                    if (e.type === "button") return `<a href="${e.href}" style="display:inline-block;text-decoration:none;background:${e.style.bg};color:${e.style.color};padding:8px 12px;border-radius:8px;font-size:${e.style.fontSize}px;text-align:${e.style.align}">${e.content}</a>`;
+                    if (e.type === "divider") return `<hr style="border:0;border-top:${e.style.thickness}px solid ${e.style.color}" />`;
+                    if (e.type === "input") return `<input type="text" placeholder="Input field" style="padding:8px;border-radius:6px;border:1px solid #ccc;width:100%" />`;
+                    if (e.type === "password") return `<input type="password" placeholder="Password field" style="padding:8px;border-radius:6px;border:1px solid #ccc;width:100%" />`;
+                    if (e.type === "select") {
+                        const options = e.options.map(opt => `<option value="${opt}">${opt}</option>`).join("");
+                        return `<select style="padding:8px;border-radius:6px;border:1px solid #ccc;width:100%">${options}</select>`;
+                    }
+                    return "";
+                }).join("\n");
+                return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Export</title></head>
+<body style="font-family:system-ui,Arial,sans-serif;padding:16px;max-width:900px;margin:auto;">
+${html}
+</body></html>`;
+            };
+
+            const download = () => {
+                const blob = new Blob([exportHTML()], { type: "text/html" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "site.html"; a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div className="col props">
+                    <h3>Properties</h3>
+
+                    <div className="toolbar">
+                        <button className="btn" onClick={download}>Download HTML</button>
+                    </div>
+
+                    {!el && <p>Select an element from canvas</p>}
+
+                    {el?.type === "heading" && <>
+                        <div className="field">
+                            <label>Text</label>
+                            <input value={el.content} onChange={e => update({ content: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Level</label>
+                            <select value={el.level} onChange={e => update({ level: Number(e.target.value) })}>
+                                <option value={1}>H1</option>
+                                <option value={2}>H2</option>
+                                <option value={3}>H3</option>
+                                <option value={4}>H4</option>
+                            </select>
+                        </div>
+                        <div className="field">
+                            <label>Color</label>
+                            <input type="color" value={el.style.color} onChange={e => updateStyle({ color: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Align</label>
+                            <select value={el.style.align} onChange={e => updateStyle({ align: e.target.value })}>
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                    </>}
+
+                    {el?.type === "text" && <>
+                        <div className="field">
+                            <label>Text</label>
+                            <textarea rows="3" value={el.content} onChange={e => update({ content: e.target.value })}></textarea>
+                        </div>
+                        <div className="row">
+                            <div className="field" style={{ flex: 1 }}>
+                                <label>Color</label>
+                                <input type="color" value={el.style.color} onChange={e => updateStyle({ color: e.target.value })} />
+                            </div>
+                            <div className="field" style={{ flex: 1 }}>
+                                <label>Font Size (px)</label>
+                                <input type="number" min="10" max="60" value={el.style.fontSize} onChange={e => updateStyle({ fontSize: Number(e.target.value) })} />
+                            </div>
+                        </div>
+                        <div className="field">
+                            <label>Weight</label>
+                            <select value={el.style.fontWeight} onChange={e => updateStyle({ fontWeight: e.target.value })}>
+                                <option value="normal">Normal</option>
+                                <option value="bold">Bold</option>
+                            </select>
+                        </div>
+                        <div className="field">
+                            <label>Align</label>
+                            <select value={el.style.align} onChange={e => updateStyle({ align: e.target.value })}>
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                    </>}
+
+                    {el?.type === "image" && <>
+                        <div className="field">
+                            <label>Image URL</label>
+                            <input value={el.src} onChange={e => update({ src: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Alt text</label>
+                            <input value={el.alt} onChange={e => update({ alt: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Width (px)</label>
+                            <input type="number" min="50" max="1200" value={el.style.width} onChange={e => updateStyle({ width: Number(e.target.value) })} />
+                        </div>
+                    </>}
+
+                    {el?.type === "button" && <>
+                        <div className="field">
+                            <label>Label</label>
+                            <input value={el.content} onChange={e => update({ content: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Link (href)</label>
+                            <input value={el.href} onChange={e => update({ href: e.target.value })} />
+                        </div>
+                        <div className="row">
+                            <div className="field" style={{ flex: 1 }}>
+                                <label>Text Color</label>
+                                <input type="color" value={el.style.color} onChange={e => updateStyle({ color: e.target.value })} />
+                            </div>
+                            <div className="field" style={{ flex: 1 }}>
+                                <label>Background</label>
+                                <input type="color" value={el.style.bg} onChange={e => updateStyle({ bg: e.target.value })} />
+                            </div>
+                        </div>
+                        <div className="field">
+                            <label>Font Size (px)</label>
+                            <input type="number" min="10" max="40" value={el.style.fontSize} onChange={e => updateStyle({ fontSize: Number(e.target.value) })} />
+                        </div>
+                        <div className="field">
+                            <label>Align</label>
+                            <select value={el.style.align} onChange={e => updateStyle({ align: e.target.value })}>
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                    </>}
+
+                    {el?.type === "divider" && <>
+                        <div className="field">
+                            <label>Color</label>
+                            <input type="color" value={el.style.color} onChange={e => updateStyle({ color: e.target.value })} />
+                        </div>
+                        <div className="field">
+                            <label>Thickness (px)</label>
+                            <input type="number" min="1" max="10" value={el.style.thickness} onChange={e => updateStyle({ thickness: Number(e.target.value) })} />
+                        </div>
+                    </>}
+
+                    {el?.type === "password" && (
+                        <div className="field">
+                            <label>Password Field (no extra properties)</label>
+                        </div>
+                    )}
+                    {el?.type === "select" && (
+                        <div>
+                            <h4>Edit Options</h4>
+                            {el.options.map((opt, i) => (
+                                <div key={i} style={{ display: "flex", marginBottom: "5px" }}>
+                                    <input type="text" value={opt} onChange={(e) => {
+                                        const updated = [...el.options];
+                                        updated[i] = e.target.value;
+                                        update({ options: updated });
+                                    }}
+                                    />
+                                    <button onClick={() => {
+                                        const updated = el.options.filter((_, idx) => idx !== i);
+                                        update({ options: updated });
+                                    }}
+                                    > ❌
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => update({ options: [...el.options, "New Option"] })}> ➕ Add Option </button>
+                        </div>
+                    )}
+
+                    <h4>Live JSON</h4>
+                    <pre className="codebox">{JSON.stringify({ elements }, null, 2)}</pre>
+                </div>
+            );
+        }
+
+        // ---------- Form
+        function Form() {
+            return (
+                <form>
+                    <div className="field">
+                        <label>Name</label>
+                        <input type="text" />
+                    </div>
+                    <div className="field">
+                        <label>Email</label>
+                        <input type="email" />
+                    </div>
+                    <div className="field">
+                        <label>Message</label>
+                        <textarea />
+                    </div>
+                    <button type="submit">Submit</button>
+                </form>
+            );
+        }
+
+        // ---------- App (state + layout)
+        function App() {
+            const [elements, setElements] = useState([]);
+            const [selectedId, setSelectedId] = useState(null);
+
+            return (
+                <div className="app">
+                    <Sidebar />
+                    <Canvas
+                        elements={elements}
+                        setElements={setElements}
+                        selectedId={selectedId}
+                        setSelectedId={setSelectedId}
+                    />
+                    <Properties
+                        elements={elements}
+                        setElements={setElements}
+                        selectedId={selectedId}
+                    />
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
